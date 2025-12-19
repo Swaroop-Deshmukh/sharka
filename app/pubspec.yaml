@@ -38,7 +38,7 @@ dependencies:
 
   # Maps & Location (YOUR MAIN TOOLS)
   google_maps_flutter: ^2.5.0
-  geolocator: ^10.1.0
+  geolocator: ^14.0.2
 
   # Networking
   dio: ^5.3.3
