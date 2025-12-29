@@ -6,6 +6,8 @@ import { AuthModule } from './auth/auth.module';
 import { TripsModule } from './trips/trips.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { EventsGateway } from './events/events.gateway';
+import { RedisModule } from './redis/redis.module';
+import {LocationModule} from'./location/location.module';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { EventsGateway } from './events/events.gateway';
     AuthModule,
     TripsModule,
     VehiclesModule,
+    RedisModule,
+    LocationModule,
   ],
   providers: [EventsGateway],
 })
