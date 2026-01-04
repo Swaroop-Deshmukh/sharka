@@ -1,17 +1,18 @@
 import 'dart:async';
-import 'dart:math'; // Required for Random() & Calculations
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'search_destination_screen.dart';
 import 'side_menu_drawer.dart';
 import 'driver_earnings_screen.dart';
-import 'wallet_screen.dart'; // Day 24: Wallet Integration
+import 'wallet_screen.dart'; 
+import 'ride_history_screen.dart'; // IMPORT HISTORY
 import '../services/driver_simulation_service.dart';
 import '../widgets/driver_request_panel.dart';
 import '../widgets/driver_trip_panel.dart';
-import '../widgets/consensus_popup.dart'; // Day 22: Consensus Popup
-import '../logic/deviation_logic.dart'; // Day 23: Logic
+import '../widgets/consensus_popup.dart';
+import '../logic/deviation_logic.dart'; 
 
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key});
@@ -32,7 +33,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   final DriverSimulationService _driverService = DriverSimulationService();
   Set<Marker> _driverMarkers = {};
 
-  // LOGIC ENGINES (Week 4)
+  // LOGIC ENGINES
   final DeviationLogic _deviationLogic = DeviationLogic();
   int _detourMinutes = 5; 
 
@@ -55,12 +56,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   String _priceMoto = "Loading...";
   String _priceAuto = "Loading...";
   
-  // SHARKA SHARE VARIABLES (Day 21)
+  // SHARKA SHARE VARIABLES
   String _priceShare = "Loading...";
   int _requestedSeats = 1;
 
-  // INTERCITY LOGIC (Day 25)
-  bool _isIntercity = false; // False = City, True = Outstation
+  // INTERCITY LOGIC
+  bool _isIntercity = false;
   String _priceIntercitySedan = "Loading...";
   String _priceIntercitySUV = "Loading...";
 
@@ -135,28 +136,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   void _calculatePrices(double distanceKm) {
     setState(() {
-      // 1. CITY PRICES (Standard)
       double rawPriceGo = 40 + (12 * distanceKm);
       _priceGo = "₹${rawPriceGo.toStringAsFixed(0)}";
       _priceMoto = "₹${(20 + (6 * distanceKm)).toStringAsFixed(0)}";
       _priceAuto = "₹${(25 + (9 * distanceKm)).toStringAsFixed(0)}";
       _priceShare = "₹${(rawPriceGo * 0.70).toStringAsFixed(0)}";
 
-      // 2. INTERCITY PRICES (Day 25)
-      // Base ₹500 + ₹15/km (Sedan)
       _priceIntercitySedan = "₹${(500 + (15 * distanceKm)).toStringAsFixed(0)}";
-      // Base ₹800 + ₹22/km (SUV)
       _priceIntercitySUV = "₹${(800 + (22 * distanceKm)).toStringAsFixed(0)}";
     });
   }
 
-  // --- 3. PASSENGER BOOKING & DEVIATION LOGIC ---
+  // --- 3. PASSENGER BOOKING ---
   void _onBookRide() {
     setState(() {
       _isLookingForDriver = true;
     });
 
-    // Simulate Finding Driver
     Future.delayed(const Duration(seconds: 3), () {
       if (!mounted) return;
       setState(() {
@@ -164,17 +160,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         _isDriverFound = true;
       });
 
-      // TRIGGER CONSENSUS POPUP (Day 22)
-      // Only trigger if we are in City Mode
       if (!_isIntercity) {
         Future.delayed(const Duration(seconds: 4), () {
           if (mounted && !_isDriverMode && _currentPosition != null) {
             
-            // 1. Simulate a New Passenger nearby (Day 23)
             double randomLat = _currentPosition!.latitude + (Random().nextDouble() * 0.015); 
             double randomLng = _currentPosition!.longitude + (Random().nextDouble() * 0.015);
 
-            // 2. Calculate Real Deviation Time
             int calculatedTime = _deviationLogic.calculateDetourTime(
               _currentPosition!.latitude, 
               _currentPosition!.longitude, 
@@ -186,7 +178,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               _detourMinutes = calculatedTime;
             });
 
-            // 3. Only show popup if Fair (< 10 mins)
             if (_deviationLogic.isFairDetour(calculatedTime)) {
                 _showConsensusDialog();
             } else {
@@ -200,7 +191,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     });
   }
 
-  // Helper: Show the Voting Popup (Day 22 + Day 24 Reward)
   void _showConsensusDialog() {
     showDialog(
       context: context,
@@ -210,10 +200,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           extraMinutes: _detourMinutes,
           onAccept: () {
             Navigator.pop(context);
-
-            // --- DAY 24: CREDIT WALLET ---
             WalletScreen.addReward(15.00); 
-
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Vote Accepted! ₹15.00 Added to Wallet."), backgroundColor: Colors.green),
             );
@@ -268,14 +255,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       } else if (_tripStatus == "started") {
         _isTripActive = false;
         _tripStatus = "pickup";
+        
+        // --- SAVE TO HISTORY (Day 26) ---
+        RideHistoryScreen.addTrip(
+          "Current Location",
+          "Destination",
+          "₹240"
+        );
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Trip Completed! ₹240.00 Added to Wallet."), backgroundColor: Colors.green)
+          const SnackBar(content: Text("Trip Completed! Saved to History."), backgroundColor: Colors.green)
         );
       }
     });
   }
 
-  // --- 5. RESET APP ---
   void _resetApp() {
     setState(() {
       _polylines.clear();
@@ -336,7 +330,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       ),
       body: Stack(
         children: [
-          // MAP LAYER
           GoogleMap(
             mapType: MapType.normal,
             initialCameraPosition: _initialPosition,
@@ -352,7 +345,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             padding: EdgeInsets.only(bottom: _showRidePanel ? panelHeight : 0),
           ),
 
-          // PASSENGER UI: SEARCH BAR
           if (!_isDriverMode && !_showRidePanel)
             Positioned(
               top: 50,
@@ -442,7 +434,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
 
-          // PASSENGER UI: BOTTOM PANEL
           if (_showRidePanel && !_isDriverMode)
             Positioned(
               bottom: 0,
@@ -541,14 +532,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                         const Text("Choose a ride", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 15),
 
-                        // --- MODE TOGGLE (Day 25) ---
                         _buildModeToggle(),
                         const SizedBox(height: 15),
 
                         if (!_isIntercity) ...[
-                          // --- CITY MODE LIST ---
-                          
-                          // SHARKA SHARE (Green Card - Day 21)
                           Container(
                             margin: const EdgeInsets.only(bottom: 15),
                             decoration: BoxDecoration(
@@ -571,9 +558,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                                       const Text("Best Value", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
                                     ],
                                   ),
-                                  onTap: () {
-                                    // Logic for selecting "Share"
-                                  },
+                                  onTap: () {},
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 10),
@@ -583,13 +568,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                             ),
                           ),
 
-                          // Standard Rides
                           _buildRideOption(title: "Sharka Go", price: _priceGo, time: "3 min away", icon: Icons.directions_car, isSelected: true),
                           _buildRideOption(title: "Moto", price: _priceMoto, time: "5 min away", icon: Icons.two_wheeler, isSelected: false),
                           _buildRideOption(title: "Auto", price: _priceAuto, time: "2 min away", icon: Icons.electric_rickshaw, isSelected: false),
 
                         ] else ...[
-                          // --- OUTSTATION MODE (Day 25) ---
                           const Text("Travel comfortably to other cities", style: TextStyle(color: Colors.grey, fontSize: 12)),
                           const SizedBox(height: 10),
 
@@ -619,7 +602,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
 
-          // BACK BUTTON (Passenger)
           if (_showRidePanel && !_isDriverFound && !_isDriverMode)
             Positioned(
               top: 50,
@@ -633,9 +615,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
 
-          // DRIVER UI SECTION
           if (_isDriverMode) ...[
-            // Earnings Pill
             Positioned(
               top: 50,
               left: 0,
@@ -658,7 +638,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
             
-            // Menu Button
             Positioned(
               top: 50,
               left: 20,
@@ -671,7 +650,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
 
-            // GO ONLINE BUTTON
             if (!_showDriverRequest && !_isTripActive)
                Positioned(
                  bottom: 40,
@@ -693,7 +671,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                  ),
                ),
 
-            // REQUEST PANEL
             if (_showDriverRequest)
               Positioned(
                 bottom: 0, 
@@ -717,7 +694,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                 ),
               ),
               
-            // TRIP PANEL
             if (_isTripActive)
               Positioned(
                 bottom: 0,
@@ -734,7 +710,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
   }
 
-  // Helper: Standard Ride Card
   Widget _buildRideOption({required String title, required String price, required String time, required IconData icon, required bool isSelected}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -762,7 +737,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
   }
 
-  // Helper: Seat Selector Widget (Day 21)
   Widget _buildSeatSelector() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -789,7 +763,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
   }
 
-  // Helper: Mode Toggle (Day 25)
   Widget _buildModeToggle() {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10),

@@ -1,157 +1,116 @@
 import 'package:flutter/material.dart';
-import 'ride_history_screen.dart';
 import 'wallet_screen.dart';
-import 'profile_screen.dart'; // Import Day 20 Screen
+import 'profile_screen.dart';
+import 'ride_history_screen.dart';
+import 'saved_places_screen.dart';
+import 'help_support_screen.dart';
+import 'language_screen.dart';
 
-class SideMenuDrawer extends StatefulWidget {
+class SideMenuDrawer extends StatelessWidget {
   final bool isDriverMode;
   final Function(bool) onModeChanged;
 
   const SideMenuDrawer({
-    super.key,
+    super.key, 
     required this.isDriverMode,
     required this.onModeChanged,
   });
 
   @override
-  State<SideMenuDrawer> createState() => _SideMenuDrawerState();
-}
-
-class _SideMenuDrawerState extends State<SideMenuDrawer> {
-  late bool _isDriver;
-
-  @override
-  void initState() {
-    super.initState();
-    _isDriver = widget.isDriverMode;
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: Colors.white,
       child: Column(
         children: [
-          // 1. HEADER (Profile Info)
           UserAccountsDrawerHeader(
             decoration: const BoxDecoration(color: Colors.black),
-            currentAccountPicture: GestureDetector(
-              onTap: () {
-                // Navigate to Profile when clicking picture
-                Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
-              },
-              child: const CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Icon(Icons.person, size: 40, color: Colors.black),
-              ),
+            currentAccountPicture: const CircleAvatar(
+              backgroundImage: AssetImage('assets/user_avatar.png'),
+              backgroundColor: Colors.white,
             ),
-            accountName: const Text("User Name",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            accountEmail: const Text("+91 98765 43210"),
+            accountName: const Text("Swaroop Deshmukh", style: TextStyle(fontWeight: FontWeight.bold)),
+            accountEmail: const Text("swaroop@sharka.com"),
           ),
-
-          // 2. ROLE SWITCHER (The "Super App" Toggle)
-          Container(
-            color: Colors.black87,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
               children: [
-                Text(
-                  _isDriver ? "DRIVER MODE" : "PASSENGER MODE",
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12),
+                ListTile(
+                  leading: const Icon(Icons.person, color: Colors.black),
+                  title: const Text("Profile"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+                  },
                 ),
-                Switch(
-                  value: _isDriver,
-                  activeColor: Colors.white,
-                  activeTrackColor: Colors.green,
-                  inactiveThumbColor: Colors.white,
-                  inactiveTrackColor: Colors.grey,
-                  onChanged: (value) {
-                    setState(() {
-                      _isDriver = value;
-                    });
-                    // Trigger the logic in Home Screen
-                    widget.onModeChanged(value);
-
-                    // Close drawer after short delay to show the animation
-                    Future.delayed(const Duration(milliseconds: 300), () {
-                      if (mounted) Navigator.pop(context);
-                    });
+                ListTile(
+                  leading: const Icon(Icons.history, color: Colors.black),
+                  title: const Text("Your Trips"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const RideHistoryScreen()));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.account_balance_wallet, color: Colors.black),
+                  title: const Text("Wallet"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const WalletScreen()));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.bookmark, color: Colors.black),
+                  title: const Text("Saved Places"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const SavedPlacesScreen()));
+                  },
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.help, color: Colors.black),
+                  title: const Text("Help & Support"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpSupportScreen()));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.language, color: Colors.black),
+                  title: const Text("Language"),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const LanguageScreen()));
+                  },
+                ),
+                const Divider(),
+                ListTile(
+                  leading: Icon(isDriverMode ? Icons.directions_car : Icons.person_pin, color: Colors.green),
+                  title: Text(
+                    isDriverMode ? "Switch to Passenger" : "Drive with Sharka",
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                  ),
+                  onTap: () {
+                    onModeChanged(!isDriverMode);
+                    Navigator.pop(context);
                   },
                 ),
               ],
             ),
           ),
-
-          // 3. MENU ITEMS
-          
-          // A. YOUR RIDES (Navigates to History)
-          _buildMenuItem(Icons.history, "Your Rides", () {
-            Navigator.pop(context);
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const RideHistoryScreen()),
-            );
-          }),
-
-          // B. WALLET (Navigates to Wallet)
-          _buildMenuItem(Icons.account_balance_wallet, "Wallet", () {
-            Navigator.pop(context);
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const WalletScreen()),
-            );
-          }),
-
-          _buildMenuItem(Icons.notifications, "Notifications", () {
-            Navigator.pop(context);
-          }),
-
-          // C. SETTINGS (Navigates to Profile/Settings)
-          _buildMenuItem(Icons.settings, "Settings", () {
-            Navigator.pop(context);
-             Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfileScreen()),
-            );
-          }),
-
-          const Divider(),
-
-          _buildMenuItem(Icons.help, "Help & Support", () {
-            Navigator.pop(context);
-          }),
-
-          const Spacer(),
-
-          // 4. LOGOUT
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text("Log Out",
-                style:
-                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            title: const Text("Logout", style: TextStyle(color: Colors.red)),
             onTap: () {
               Navigator.pop(context);
-              // Logout logic will be added later
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Logged Out Successfully"))
+              );
             },
           ),
           const SizedBox(height: 20),
         ],
       ),
-    );
-  }
-
-  Widget _buildMenuItem(IconData icon, String title, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.black87),
-      title: Text(title, style: const TextStyle(fontSize: 16)),
-      onTap: onTap,
     );
   }
 }

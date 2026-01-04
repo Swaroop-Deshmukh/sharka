@@ -8,15 +8,42 @@ class SearchDestinationScreen extends StatefulWidget {
 }
 
 class _SearchDestinationScreenState extends State<SearchDestinationScreen> {
-  // Controllers to get text from the inputs
-  final TextEditingController _sourceController = TextEditingController();
-  final TextEditingController _destinationController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+
+  // 1. EXTENDED LIST OF CITIES (Simulating a database)
+  final List<Map<String, dynamic>> _allLocations = [
+    {"name": "Home", "address": "Pune, Maharashtra, India", "lat": 18.5204, "lng": 73.8567},
+    {"name": "Office", "address": "Hinjewadi, Pune, India", "lat": 18.5913, "lng": 73.7389},
+    {"name": "Pune Airport", "address": "Lohegaon, Pune, India", "lat": 18.5793, "lng": 73.9089},
+    {"name": "Mumbai", "address": "Gateway of India, Mumbai", "lat": 19.0760, "lng": 72.8777},
+    {"name": "Amravati", "address": "Amravati City, Maharashtra", "lat": 20.9374, "lng": 77.7796},
+    {"name": "Nagpur", "address": "Zero Mile Stone, Nagpur", "lat": 21.1458, "lng": 79.0882},
+    {"name": "Nashik", "address": "Panchavati, Nashik", "lat": 19.9975, "lng": 73.7898},
+    {"name": "VIT Pune", "address": "Bibwewadi, Pune", "lat": 18.4636, "lng": 73.8681},
+  ];
+
+  // 2. FILTERED LIST (Updates as you type)
+  List<Map<String, dynamic>> _filteredLocations = [];
 
   @override
-  void dispose() {
-    _sourceController.dispose();
-    _destinationController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _filteredLocations = _allLocations; // Start with all showing
+  }
+
+  void _runFilter(String enteredKeyword) {
+    List<Map<String, dynamic>> results = [];
+    if (enteredKeyword.isEmpty) {
+      results = _allLocations;
+    } else {
+      results = _allLocations
+          .where((loc) => loc["name"].toLowerCase().contains(enteredKeyword.toLowerCase()))
+          .toList();
+    }
+
+    setState(() {
+      _filteredLocations = results;
+    });
   }
 
   @override
@@ -30,122 +57,61 @@ class _SearchDestinationScreenState extends State<SearchDestinationScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          "Plan your ride",
-          style: TextStyle(color: Colors.black, fontSize: 18),
-        ),
+        title: const Text("Plan your ride", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
       ),
       body: Column(
         children: [
-          // 1. INPUT FIELDS SECTION
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                )
-              ],
-            ),
-            child: Column(
-              children: [
-                // "From" Field
-                Row(
-                  children: [
-                    const Icon(Icons.my_location, color: Colors.blue, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _sourceController,
-                        decoration: InputDecoration(
-                          hintText: "Your location",
-                          hintStyle: TextStyle(color: Colors.grey[400]),
-                          border: InputBorder.none,
-                          filled: true,
-                          fillColor: Colors.grey[100],
-                        ),
-                      ),
-                    ),
-                  ],
+          // SEARCH INPUT
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => _runFilter(value), // Trigger filter
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: "Where to? (e.g. Amravati)",
+                filled: true,
+                fillColor: Colors.grey[100],
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
                 ),
-                const SizedBox(height: 12),
-                
-                // Divider line with a connector dot
-                Row(
-                  children: [
-                     const SizedBox(width: 9),
-                     Container(height: 25, width: 2, color: Colors.grey[300]),
-                  ],
-                ),
-                const SizedBox(height: 2),
-
-                // "To" Field
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, color: Colors.red, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _destinationController,
-                        autofocus: true, // Keyboard opens automatically
-                        decoration: InputDecoration(
-                          hintText: "Where to?",
-                          hintStyle: TextStyle(color: Colors.grey),
-                          border: InputBorder.none,
-                          filled: true,
-                          fillColor: Colors.grey[100],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
+          
+          const Divider(height: 1),
 
-          // 2. PREDICTIONS LIST (Placeholder for Day 7)
-         // 2. PREDICTIONS LIST (Updated for Day 7)
+          // LIST RESULTS
           Expanded(
-            child: ListView.separated(
-              itemCount: 3, 
-              separatorBuilder: (context, index) => const Divider(height: 1),
+            child: _filteredLocations.isNotEmpty 
+            ? ListView.builder(
+              itemCount: _filteredLocations.length,
               itemBuilder: (context, index) {
+                final location = _filteredLocations[index];
                 return ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.location_on, color: Colors.grey, size: 16),
+                  leading: const CircleAvatar(
+                    backgroundColor: Colors.grey,
+                    child: Icon(Icons.location_on, color: Colors.white, size: 20),
                   ),
-                  title: Text(index == 0 ? "Home" : index == 1 ? "Office" : "Pune Airport"),
-                  subtitle: const Text("Pune, Maharashtra, India"),
+                  title: Text(location["name"], style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(location["address"]),
                   onTap: () {
-                    // DEFINE COORDINATES FOR DEMO
-                    // 1. Home (Example)
-                    // 2. Office (Example)
-                    // 3. Pune Airport (Real coords: 18.5793, 73.9089)
-                    
-                    Map<String, double> selectedLocation;
-
-                    if (index == 2) {
-                      // Pune Airport Coordinates
-                      selectedLocation = {'lat': 18.5793, 'lng': 73.9089}; 
-                    } else {
-                      // Just a random point nearby for demo
-                      selectedLocation = {'lat': 18.5204, 'lng': 73.8567}; 
-                    }
-
-                    // SEND DATA BACK TO PREVIOUS SCREEN
-                    Navigator.pop(context, selectedLocation); 
+                    // Return the selected coordinates to HomeMapScreen
+                    Navigator.pop(context, {
+                      'lat': location['lat'],
+                      'lng': location['lng'],
+                      'name': location['name']
+                    });
                   },
                 );
               },
-            ),
+            )
+            : const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text("No location found. Try 'Pune' or 'Mumbai'", style: TextStyle(color: Colors.grey)),
+              ),
           ),
         ],
       ),

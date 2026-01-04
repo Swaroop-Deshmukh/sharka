@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class ConsensusPopup extends StatefulWidget {
   final VoidCallback onAccept;
   final VoidCallback onDecline;
-  final int extraMinutes; // Dynamic time from logic
+  final int extraMinutes;
 
   const ConsensusPopup({
     super.key, 
@@ -22,12 +22,10 @@ class _ConsensusPopupState extends State<ConsensusPopup> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    // 15 Second Timer
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 15),
     )..forward().whenComplete(() {
-      // Auto-decline if time runs out
       widget.onDecline();
     });
   }
@@ -47,11 +45,9 @@ class _ConsensusPopupState extends State<ConsensusPopup> with SingleTickerProvid
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 1. HEADER
             const Text("MATCH FOUND!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green)),
             const SizedBox(height: 10),
             
-            // 2. PROFILE
             const CircleAvatar(
               radius: 30,
               backgroundColor: Colors.black,
@@ -68,7 +64,7 @@ class _ConsensusPopupState extends State<ConsensusPopup> with SingleTickerProvid
             ),
             const SizedBox(height: 20),
 
-            // 3. THE TRADE-OFF
+            // THE TRADE-OFF
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -81,7 +77,6 @@ class _ConsensusPopupState extends State<ConsensusPopup> with SingleTickerProvid
                   Column(
                     children: [
                       const Text("TIME", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      // Dynamic Time Display
                       Text("+${widget.extraMinutes} min", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 16)),
                     ],
                   ),
@@ -98,14 +93,13 @@ class _ConsensusPopupState extends State<ConsensusPopup> with SingleTickerProvid
             
             const SizedBox(height: 20),
 
-            // 4. COUNTDOWN TIMER
             AnimatedBuilder(
               animation: _controller,
               builder: (context, child) {
                 return LinearProgressIndicator(
-                  value: 1.0 - _controller.value, // Shrink from full to empty
+                  value: 1.0 - _controller.value,
                   backgroundColor: Colors.grey[200],
-                  color: _controller.value > 0.7 ? Colors.red : Colors.green, // Turn red near end
+                  color: _controller.value > 0.7 ? Colors.red : Colors.green,
                   minHeight: 6,
                   borderRadius: BorderRadius.circular(5),
                 );
@@ -113,7 +107,6 @@ class _ConsensusPopupState extends State<ConsensusPopup> with SingleTickerProvid
             ),
             const SizedBox(height: 20),
 
-            // 5. BUTTONS (YES / NO)
             Row(
               children: [
                 Expanded(

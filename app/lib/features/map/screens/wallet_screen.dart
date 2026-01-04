@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
 
-  // --- 1. SHARED GLOBAL DATA ---
-  // Static variables allow access from Home Screen without complex state management
   static double globalBalance = 450.00;
   
   static List<Map<String, dynamic>> globalTransactions = [
@@ -12,7 +10,6 @@ class WalletScreen extends StatefulWidget {
     {"title": "Added Money", "date": "2 Days ago", "amount": "+₹1000.00", "isCredit": true},
   ];
 
-  // Helper method to add money instantly
   static void addReward(double amount) {
     globalBalance += amount;
     globalTransactions.insert(0, {
@@ -43,7 +40,6 @@ class _WalletScreenState extends State<WalletScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. BALANCE CARD
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(25),
@@ -57,13 +53,10 @@ class _WalletScreenState extends State<WalletScreen> {
                 children: [
                   const Text("Total Balance", style: TextStyle(color: Colors.white70, fontSize: 14)),
                   const SizedBox(height: 10),
-                  // ACCESSING STATIC VARIABLE
                   Text("₹ ${WalletScreen.globalBalance.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: () {
-                      // Placeholder for Add Money
-                    },
+                    onPressed: () {},
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -74,15 +67,11 @@ class _WalletScreenState extends State<WalletScreen> {
                 ],
               ),
             ),
-            
             const SizedBox(height: 30),
             const Text("Recent Transactions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
-
-            // 2. TRANSACTION LIST
             Expanded(
               child: ListView.builder(
-                // ACCESSING STATIC LIST
                 itemCount: WalletScreen.globalTransactions.length,
                 itemBuilder: (context, index) {
                   final t = WalletScreen.globalTransactions[index];
