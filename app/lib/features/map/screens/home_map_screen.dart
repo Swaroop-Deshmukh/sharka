@@ -1,14 +1,17 @@
 import 'dart:async';
-import 'dart:math' show cos, sqrt, asin;
+import 'dart:math'; // Required for Random() & Calculations
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'search_destination_screen.dart';
 import 'side_menu_drawer.dart';
-import 'driver_earnings_screen.dart'; // Import Day 19 Earnings Screen
+import 'driver_earnings_screen.dart';
+import 'wallet_screen.dart'; // Day 24: Wallet Integration
 import '../services/driver_simulation_service.dart';
 import '../widgets/driver_request_panel.dart';
 import '../widgets/driver_trip_panel.dart';
+import '../widgets/consensus_popup.dart'; // Day 22: Consensus Popup
+import '../logic/deviation_logic.dart'; // Day 23: Logic
 
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key});
@@ -25,9 +28,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   LatLng? _currentPosition;
   Set<Polyline> _polylines = {};
   
-  // DRIVER SIMULATION (Ghost Cars for Passenger)
+  // DRIVER SIMULATION
   final DriverSimulationService _driverService = DriverSimulationService();
   Set<Marker> _driverMarkers = {};
+
+  // LOGIC ENGINES (Week 4)
+  final DeviationLogic _deviationLogic = DeviationLogic();
+  int _detourMinutes = 5; 
 
   // UI FLAGS: PASSENGER
   bool _showRidePanel = false;
@@ -35,18 +42,27 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   bool _isDriverFound = false;
   
   // UI FLAGS: DRIVER
-  bool _isDriverMode = false;     // Master Toggle
-  bool _isDriverOnline = false;   // Online/Offline status
-  bool _showDriverRequest = false; // Incoming Request Popup
+  bool _isDriverMode = false;
+  bool _isDriverOnline = false;
+  bool _showDriverRequest = false;
   
   // DRIVER TRIP LOGIC
   bool _isTripActive = false;
-  String _tripStatus = "pickup"; // pickup -> arrived -> started
+  String _tripStatus = "pickup";
 
-  // Price Variables
+  // PRICE VARIABLES
   String _priceGo = "Loading...";
   String _priceMoto = "Loading...";
   String _priceAuto = "Loading...";
+  
+  // SHARKA SHARE VARIABLES (Day 21)
+  String _priceShare = "Loading...";
+  int _requestedSeats = 1;
+
+  // INTERCITY LOGIC (Day 25)
+  bool _isIntercity = false; // False = City, True = Outstation
+  String _priceIntercitySedan = "Loading...";
+  String _priceIntercitySUV = "Loading...";
 
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(18.5204, 73.8567),
@@ -78,7 +94,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) return;
     }
-
     if (permission == LocationPermission.deniedForever) return;
 
     Position position = await Geolocator.getCurrentPosition();
@@ -92,7 +107,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       _currentPosition = LatLng(pos.latitude, pos.longitude);
     });
 
-    // Start Simulation only if Passenger Mode (default) and markers are empty
     if (!_isDriverMode && _driverMarkers.isEmpty) {
       _driverService.startSimulation(_currentPosition!);
       _driverService.driverStream.listen((markers) {
@@ -121,28 +135,101 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
   void _calculatePrices(double distanceKm) {
     setState(() {
-      _priceGo = "₹${(40 + (12 * distanceKm)).toStringAsFixed(0)}";
+      // 1. CITY PRICES (Standard)
+      double rawPriceGo = 40 + (12 * distanceKm);
+      _priceGo = "₹${rawPriceGo.toStringAsFixed(0)}";
       _priceMoto = "₹${(20 + (6 * distanceKm)).toStringAsFixed(0)}";
       _priceAuto = "₹${(25 + (9 * distanceKm)).toStringAsFixed(0)}";
+      _priceShare = "₹${(rawPriceGo * 0.70).toStringAsFixed(0)}";
+
+      // 2. INTERCITY PRICES (Day 25)
+      // Base ₹500 + ₹15/km (Sedan)
+      _priceIntercitySedan = "₹${(500 + (15 * distanceKm)).toStringAsFixed(0)}";
+      // Base ₹800 + ₹22/km (SUV)
+      _priceIntercitySUV = "₹${(800 + (22 * distanceKm)).toStringAsFixed(0)}";
     });
   }
 
-  // --- 3. PASSENGER BOOKING LOGIC ---
+  // --- 3. PASSENGER BOOKING & DEVIATION LOGIC ---
   void _onBookRide() {
     setState(() {
       _isLookingForDriver = true;
     });
 
+    // Simulate Finding Driver
     Future.delayed(const Duration(seconds: 3), () {
       if (!mounted) return;
       setState(() {
         _isLookingForDriver = false;
         _isDriverFound = true;
       });
+
+      // TRIGGER CONSENSUS POPUP (Day 22)
+      // Only trigger if we are in City Mode
+      if (!_isIntercity) {
+        Future.delayed(const Duration(seconds: 4), () {
+          if (mounted && !_isDriverMode && _currentPosition != null) {
+            
+            // 1. Simulate a New Passenger nearby (Day 23)
+            double randomLat = _currentPosition!.latitude + (Random().nextDouble() * 0.015); 
+            double randomLng = _currentPosition!.longitude + (Random().nextDouble() * 0.015);
+
+            // 2. Calculate Real Deviation Time
+            int calculatedTime = _deviationLogic.calculateDetourTime(
+              _currentPosition!.latitude, 
+              _currentPosition!.longitude, 
+              randomLat, 
+              randomLng
+            );
+
+            setState(() {
+              _detourMinutes = calculatedTime;
+            });
+
+            // 3. Only show popup if Fair (< 10 mins)
+            if (_deviationLogic.isFairDetour(calculatedTime)) {
+                _showConsensusDialog();
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Sharka blocked a match (Too far) to save your time!"), duration: Duration(seconds: 3))
+              );
+            }
+          }
+        });
+      }
     });
   }
 
-  // --- 4. DRIVER ONLINE LOGIC ---
+  // Helper: Show the Voting Popup (Day 22 + Day 24 Reward)
+  void _showConsensusDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return ConsensusPopup(
+          extraMinutes: _detourMinutes,
+          onAccept: () {
+            Navigator.pop(context);
+
+            // --- DAY 24: CREDIT WALLET ---
+            WalletScreen.addReward(15.00); 
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Vote Accepted! ₹15.00 Added to Wallet."), backgroundColor: Colors.green),
+            );
+          },
+          onDecline: () {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Vote Declined. Continuing solo."), backgroundColor: Colors.red),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- 4. DRIVER LOGIC ---
   void _toggleDriverOnline() {
     setState(() {
       _isDriverOnline = !_isDriverOnline;
@@ -153,11 +240,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         const SnackBar(content: Text("You are ONLINE. Searching for rides..."), backgroundColor: Colors.green)
       );
 
-      // Simulate an incoming request after 3 seconds
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted && _isDriverMode && _isDriverOnline && !_isTripActive) {
           setState(() {
-            _showDriverRequest = true; // SHOW THE PANEL!
+            _showDriverRequest = true;
           });
         }
       });
@@ -171,21 +257,17 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
   }
 
-  // --- 5. DRIVER TRIP ACTION LOGIC ---
   void _handleTripAction() {
     setState(() {
       if (_tripStatus == "pickup") {
-        _tripStatus = "arrived"; // Driver reached passenger
+        _tripStatus = "arrived";
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Waiting for passenger...")));
       } else if (_tripStatus == "arrived") {
-        _tripStatus = "started"; // Passenger got in
+        _tripStatus = "started";
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Trip Started! Navigating to dropoff...")));
       } else if (_tripStatus == "started") {
-        // Trip Over -> Reset trip state, stay online
         _isTripActive = false;
         _tripStatus = "pickup";
-        
-        // Show Earnings Popup
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Trip Completed! ₹240.00 Added to Wallet."), backgroundColor: Colors.green)
         );
@@ -193,17 +275,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     });
   }
 
-  // --- 6. RESET APP ---
+  // --- 5. RESET APP ---
   void _resetApp() {
     setState(() {
-      // Reset Passenger
       _polylines.clear();
       _showRidePanel = false;
       _isLookingForDriver = false;
       _isDriverFound = false;
       _priceGo = "Loading...";
-      
-      // Reset Driver Trip states
       _showDriverRequest = false;
       _isTripActive = false;
       _tripStatus = "pickup";
@@ -236,7 +315,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         onModeChanged: (bool newMode) {
           setState(() {
             _isDriverMode = newMode;
-            // Reset ALL states when switching modes
             _showRidePanel = false;
             _isDriverFound = false;
             _isLookingForDriver = false;
@@ -247,9 +325,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             _tripStatus = "pickup";
 
             if (_isDriverMode) {
-               _driverMarkers.clear(); // Hide ghost cars for driver
+               _driverMarkers.clear();
             } else {
-               // Restart simulation for passenger
                if (_currentPosition != null) {
                  _driverService.startSimulation(_currentPosition!);
                }
@@ -264,7 +341,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             mapType: MapType.normal,
             initialCameraPosition: _initialPosition,
             polylines: _polylines,
-            // Show markers only if Passenger
             markers: _isDriverMode ? {} : _driverMarkers, 
             onMapCreated: (GoogleMapController controller) {
               _controller.complete(controller);
@@ -276,11 +352,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             padding: EdgeInsets.only(bottom: _showRidePanel ? panelHeight : 0),
           ),
 
-          // ==============================
-          //      PASSENGER UI SECTION
-          // ==============================
-
-          // SEARCH BAR (Visible when panel is CLOSED)
+          // PASSENGER UI: SEARCH BAR
           if (!_isDriverMode && !_showRidePanel)
             Positioned(
               top: 50,
@@ -292,10 +364,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: const [
-                    BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 10,
-                        offset: Offset(0, 5))
+                    BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))
                   ],
                 ),
                 child: Row(
@@ -305,8 +374,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                         onTap: () async {
                           final result = await Navigator.push(
                             context,
-                            MaterialPageRoute(
-                                builder: (context) => const SearchDestinationScreen()),
+                            MaterialPageRoute(builder: (context) => const SearchDestinationScreen()),
                           );
 
                           if (result != null && _currentPosition != null) {
@@ -336,25 +404,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                               _showRidePanel = true;
                             });
 
-                            final GoogleMapController controller =
-                                await _controller.future;
+                            final GoogleMapController controller = await _controller.future;
                             controller.animateCamera(CameraUpdate.newLatLngBounds(
                               LatLngBounds(
                                 southwest: LatLng(
-                                  _currentPosition!.latitude < destLat
-                                      ? _currentPosition!.latitude
-                                      : destLat,
-                                  _currentPosition!.longitude < destLng
-                                      ? _currentPosition!.longitude
-                                      : destLng,
+                                  _currentPosition!.latitude < destLat ? _currentPosition!.latitude : destLat,
+                                  _currentPosition!.longitude < destLng ? _currentPosition!.longitude : destLng,
                                 ),
                                 northeast: LatLng(
-                                  _currentPosition!.latitude > destLat
-                                      ? _currentPosition!.latitude
-                                      : destLat,
-                                  _currentPosition!.longitude > destLng
-                                      ? _currentPosition!.longitude
-                                      : destLng,
+                                  _currentPosition!.latitude > destLat ? _currentPosition!.latitude : destLat,
+                                  _currentPosition!.longitude > destLng ? _currentPosition!.longitude : destLng,
                                 ),
                               ),
                               100,
@@ -365,18 +424,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                           children: [
                             const Icon(Icons.search, color: Colors.grey),
                             const SizedBox(width: 10),
-                            Text("Where to?",
-                                style: TextStyle(
-                                    color: Colors.grey[600], fontSize: 16)),
+                            Text("Where to?", style: TextStyle(color: Colors.grey[600], fontSize: 16)),
                           ],
                         ),
                       ),
                     ),
-                    
                     GestureDetector(
-                      onTap: () {
-                         _scaffoldKey.currentState?.openDrawer();
-                      },
+                      onTap: () => _scaffoldKey.currentState?.openDrawer(),
                       child: const CircleAvatar(
                         radius: 15,
                         backgroundColor: Colors.grey,
@@ -388,7 +442,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
 
-          // PASSENGER BOTTOM PANEL
+          // PASSENGER UI: BOTTOM PANEL
           if (_showRidePanel && !_isDriverMode)
             Positioned(
               bottom: 0,
@@ -399,16 +453,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                 padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(25),
-                    topRight: Radius.circular(25),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 20,
-                        offset: Offset(0, -5))
-                  ],
+                  borderRadius: BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5))],
                 ),
                 child: SingleChildScrollView(
                   child: Column(
@@ -418,10 +464,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                         child: Container(
                           width: 50,
                           height: 5,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -495,32 +538,64 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                         const SizedBox(height: 50),
 
                       ] else ...[
-                        const Text("Choose a ride",
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        const Text("Choose a ride", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 15),
 
-                        _buildRideOption(
-                          title: "Sharka Go",
-                          price: _priceGo,
-                          time: "3 min away",
-                          icon: Icons.directions_car,
-                          isSelected: true,
-                        ),
-                        _buildRideOption(
-                          title: "Moto",
-                          price: _priceMoto,
-                          time: "5 min away",
-                          icon: Icons.two_wheeler,
-                          isSelected: false,
-                        ),
-                        _buildRideOption(
-                          title: "Auto",
-                          price: _priceAuto,
-                          time: "2 min away",
-                          icon: Icons.electric_rickshaw,
-                          isSelected: false,
-                        ),
+                        // --- MODE TOGGLE (Day 25) ---
+                        _buildModeToggle(),
+                        const SizedBox(height: 15),
+
+                        if (!_isIntercity) ...[
+                          // --- CITY MODE LIST ---
+                          
+                          // SHARKA SHARE (Green Card - Day 21)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 15),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              border: Border.all(color: Colors.green, width: 2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                                  leading: const Icon(Icons.people, color: Colors.green, size: 30),
+                                  title: const Text("Sharka Share", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 18)),
+                                  subtitle: const Text("Wait up to 5 mins • Save 30%", style: TextStyle(fontSize: 12, color: Colors.black54)),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(_priceShare, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.green)),
+                                      const Text("Best Value", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                                    ],
+                                  ),
+                                  onTap: () {
+                                    // Logic for selecting "Share"
+                                  },
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: _buildSeatSelector(),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Standard Rides
+                          _buildRideOption(title: "Sharka Go", price: _priceGo, time: "3 min away", icon: Icons.directions_car, isSelected: true),
+                          _buildRideOption(title: "Moto", price: _priceMoto, time: "5 min away", icon: Icons.two_wheeler, isSelected: false),
+                          _buildRideOption(title: "Auto", price: _priceAuto, time: "2 min away", icon: Icons.electric_rickshaw, isSelected: false),
+
+                        ] else ...[
+                          // --- OUTSTATION MODE (Day 25) ---
+                          const Text("Travel comfortably to other cities", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          const SizedBox(height: 10),
+
+                          _buildRideOption(title: "Intercity Sedan", price: _priceIntercitySedan, time: "15 min", icon: Icons.directions_car_filled, isSelected: true),
+                          _buildRideOption(title: "Intercity SUV", price: _priceIntercitySUV, time: "20 min", icon: Icons.airport_shuttle, isSelected: false),
+                        ],
 
                         const SizedBox(height: 20),
 
@@ -532,13 +607,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.black,
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
-                            child: const Text("Choose Sharka Go",
-                                style: TextStyle(
-                                    fontSize: 18, fontWeight: FontWeight.bold)),
+                            child: const Text("Choose Sharka Go", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ]
@@ -548,7 +619,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
 
-          // BACK BUTTON (Only visible in passenger selection mode)
+          // BACK BUTTON (Passenger)
           if (_showRidePanel && !_isDriverFound && !_isDriverMode)
             Positioned(
               top: 50,
@@ -562,11 +633,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
 
-          // ==============================
-          //        DRIVER UI SECTION
-          // ==============================
+          // DRIVER UI SECTION
           if (_isDriverMode) ...[
-            // Earnings Pill (Clickable -> Opens Earnings Screen)
+            // Earnings Pill
             Positioned(
               top: 50,
               left: 0,
@@ -574,7 +643,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               child: Center(
                 child: GestureDetector(
                   onTap: () {
-                    // Navigate to Earnings Dashboard
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const DriverEarningsScreen()));
                   },
                   child: Container(
@@ -590,7 +658,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
             
-            // Menu Button (Top Left)
+            // Menu Button
             Positioned(
               top: 50,
               left: 20,
@@ -603,7 +671,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
 
-            // GO ONLINE BUTTON (Hidden if Request or Trip is active)
+            // GO ONLINE BUTTON
             if (!_showDriverRequest && !_isTripActive)
                Positioned(
                  bottom: 40,
@@ -625,7 +693,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                  ),
                ),
 
-            // REQUEST PANEL (Popup when online)
+            // REQUEST PANEL
             if (_showDriverRequest)
               Positioned(
                 bottom: 0, 
@@ -635,7 +703,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                   onAccept: () {
                     setState(() {
                       _showDriverRequest = false;
-                      _isTripActive = true; // Start trip logic
+                      _isTripActive = true;
                       _tripStatus = "pickup";
                     });
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Ride Accepted! Navigating to Pickup...")));
@@ -649,7 +717,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                 ),
               ),
               
-            // TRIP PANEL (Active Ride)
+            // TRIP PANEL
             if (_isTripActive)
               Positioned(
                 bottom: 0,
@@ -666,45 +734,103 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     );
   }
 
-  Widget _buildRideOption({
-    required String title,
-    required String price,
-    required String time,
-    required IconData icon,
-    required bool isSelected,
-  }) {
+  // Helper: Standard Ride Card
+  Widget _buildRideOption({required String title, required String price, required String time, required IconData icon, required bool isSelected}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
       decoration: BoxDecoration(
         color: isSelected ? Colors.grey[100] : Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: isSelected
-            ? Border.all(color: Colors.black, width: 2)
-            : Border.all(color: Colors.transparent),
+        border: isSelected ? Border.all(color: Colors.black, width: 2) : Border.all(color: Colors.transparent),
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 60,
-            child: Icon(icon, size: 40, color: Colors.grey[800]),
-          ),
+          SizedBox(width: 60, child: Icon(icon, size: 40, color: Colors.grey[800])),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w600)),
-              Text(time,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              Text(time, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
             ],
           ),
           const Spacer(),
-          Text(price,
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(price, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ],
+      ),
+    );
+  }
+
+  // Helper: Seat Selector Widget (Day 21)
+  Widget _buildSeatSelector() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text("Seats: ", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+        const SizedBox(width: 10),
+        ToggleButtons(
+          isSelected: [_requestedSeats == 1, _requestedSeats == 2],
+          onPressed: (index) {
+            setState(() {
+              _requestedSeats = index + 1;
+            });
+          },
+          borderRadius: BorderRadius.circular(10),
+          borderColor: Colors.green,
+          selectedBorderColor: Colors.green,
+          selectedColor: Colors.white,
+          fillColor: Colors.green,
+          color: Colors.green,
+          constraints: const BoxConstraints(minHeight: 30, minWidth: 40),
+          children: const [Text("1"), Text("2")],
+        ),
+      ],
+    );
+  }
+
+  // Helper: Mode Toggle (Day 25)
+  Widget _buildModeToggle() {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: Row(
+        children: [
+          _buildToggleOption("City Rides", !_isIntercity),
+          _buildToggleOption("Outstation", _isIntercity),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleOption(String text, bool isActive) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _isIntercity = (text == "Outstation");
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.black : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: isActive ? [const BoxShadow(color: Colors.black26, blurRadius: 4)] : [],
+          ),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.black54,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
       ),
     );
   }
