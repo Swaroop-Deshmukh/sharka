@@ -41,12 +41,12 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color(0xFFF5F9FA),
       appBar: AppBar(
-        title: const Text("Your Trips", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+        title: const Text("Your Trips", style: TextStyle(color: Color(0xFF006064), fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: const IconThemeData(color: Color(0xFF006064)),
       ),
       body: RideHistoryScreen.tripHistory.isEmpty
           ? Center(child: Text("No trips yet", style: TextStyle(color: Colors.grey[400])))
@@ -59,11 +59,11 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 15),
-                  padding: const EdgeInsets.all(15),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,56 +72,53 @@ class _RideHistoryScreenState extends State<RideHistoryScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(trip["date"], style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.bold)),
-                          Text(trip["price"], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(trip["price"], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF006064))),
                         ],
                       ),
-                      const Divider(height: 20),
+                      const Divider(height: 25),
+                      
+                      // Route
                       Row(
                         children: [
-                          const Icon(Icons.circle, size: 12, color: Colors.green),
+                          const Icon(Icons.circle, size: 12, color: Color(0xFF006064)),
                           const SizedBox(width: 10),
                           Text(trip["source"], style: const TextStyle(fontWeight: FontWeight.w500)),
                         ],
                       ),
-                      // --- FIX: Border moved inside BoxDecoration ---
                       Container(
                         margin: const EdgeInsets.only(left: 5),
-                        height: 15, 
-                        decoration: const BoxDecoration(
-                          border: Border(left: BorderSide(color: Colors.grey, width: 1))
-                        ),
+                        height: 20, 
+                        decoration: BoxDecoration(border: Border(left: BorderSide(color: Colors.grey[300]!, width: 2))),
                       ),
                       Row(
                         children: [
-                          const Icon(Icons.square, size: 12, color: Colors.red),
+                          const Icon(Icons.square, size: 12, color: Color(0xFFFF6F00)),
                           const SizedBox(width: 10),
                           Text(trip["dest"], style: const TextStyle(fontWeight: FontWeight.w500)),
                         ],
                       ),
-                      const SizedBox(height: 15),
+                      const SizedBox(height: 20),
+                      
+                      // Footer
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.directions_car, color: Colors.grey, size: 20),
+                              Icon(Icons.directions_car, color: Colors.grey[400], size: 20),
                               const SizedBox(width: 5),
-                              Text(trip["car"], style: TextStyle(color: Colors.grey[700], fontSize: 12)),
+                              Text(trip["car"], style: TextStyle(color: Colors.grey[600], fontSize: 13)),
                             ],
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: isCompleted ? Colors.green[50] : Colors.red[50],
-                              borderRadius: BorderRadius.circular(5),
+                              borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               trip["status"],
-                              style: TextStyle(
-                                color: isCompleted ? Colors.green : Colors.red,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold
-                              ),
+                              style: TextStyle(color: isCompleted ? Colors.green : Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                           )
                         ],

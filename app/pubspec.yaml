@@ -10,25 +10,36 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
-  # Maps & Location (Weeks 1-5)
+  
+  # --- Week 1-5: Maps & Location ---
   google_maps_flutter: ^2.5.0
   geolocator: ^10.1.0
+
+  # --- New Design Pivot (Ocean Tech Theme) ---
+  google_fonts: ^6.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
-  # Icon Generator (Week 6)
+  
+  # --- Week 6: App Icon Generator ---
   flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
 
-  # Asset Registration
+  # --- Asset Registration ---
   assets:
     - assets/user_avatar.png
+    # Luxury Car Images (Make sure you save images with these names in assets folder!)
+    - assets/audi.png
+    - assets/bmw.png
+    - assets/merc.png
+    - assets/thar.png
+    - assets/fortuner.png
 
-# Configuration for App Icon Generator
+# --- Configuration for App Icon Generator ---
 flutter_icons:
   android: "ic_launcher"
   ios: true

@@ -5,6 +5,7 @@ import 'ride_history_screen.dart';
 import 'saved_places_screen.dart';
 import 'help_support_screen.dart';
 import 'language_screen.dart';
+import 'eco_dashboard_screen.dart';
 
 class SideMenuDrawer extends StatelessWidget {
   final bool isDriverMode;
@@ -19,76 +20,58 @@ class SideMenuDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
+      backgroundColor: Colors.white,
       child: Column(
         children: [
+          // 1. OCEAN GRADIENT HEADER
           UserAccountsDrawerHeader(
-            decoration: const BoxDecoration(color: Colors.black),
-            currentAccountPicture: const CircleAvatar(
-              backgroundImage: AssetImage('assets/user_avatar.png'),
-              backgroundColor: Colors.white,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF006064), Color(0xFF0097A7)], // Teal Gradient
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
             ),
-            accountName: const Text("Swaroop Deshmukh", style: TextStyle(fontWeight: FontWeight.bold)),
-            accountEmail: const Text("swaroop@sharka.com"),
+            currentAccountPicture: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              child: const CircleAvatar(
+                backgroundImage: AssetImage('assets/user_avatar.png'),
+                backgroundColor: Colors.white,
+              ),
+            ),
+            accountName: const Text("Aryan Suratkar", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            accountEmail: const Text("aryan@sharka.com", style: TextStyle(color: Colors.white70)),
           ),
+
+          // 2. MENU ITEMS (Teal Icons)
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
+                _buildMenuItem(context, Icons.person, "Profile", const ProfileScreen()),
+                _buildMenuItem(context, Icons.history, "Your Trips", const RideHistoryScreen()),
+                _buildMenuItem(context, Icons.account_balance_wallet, "Wallet", const WalletScreen()),
+                _buildMenuItem(context, Icons.bookmark, "Saved Places", const SavedPlacesScreen()),
+                
                 ListTile(
-                  leading: const Icon(Icons.person, color: Colors.black),
-                  title: const Text("Profile"),
+                  leading: const Icon(Icons.eco, color: Colors.green),
+                  title: const Text("Eco Impact", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.history, color: Colors.black),
-                  title: const Text("Your Trips"),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const RideHistoryScreen()));
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.account_balance_wallet, color: Colors.black),
-                  title: const Text("Wallet"),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const WalletScreen()));
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.bookmark, color: Colors.black),
-                  title: const Text("Saved Places"),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const SavedPlacesScreen()));
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const EcoDashboardScreen()));
                   },
                 ),
                 const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.help, color: Colors.black),
-                  title: const Text("Help & Support"),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpSupportScreen()));
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.language, color: Colors.black),
-                  title: const Text("Language"),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const LanguageScreen()));
-                  },
-                ),
+                _buildMenuItem(context, Icons.help_outline, "Help & Support", const HelpSupportScreen()),
+                _buildMenuItem(context, Icons.language, "Language", const LanguageScreen()),
+                
                 const Divider(),
                 ListTile(
-                  leading: Icon(isDriverMode ? Icons.directions_car : Icons.person_pin, color: Colors.green),
+                  leading: Icon(isDriverMode ? Icons.directions_car : Icons.person_pin, color: const Color(0xFF006064)),
                   title: Text(
                     isDriverMode ? "Switch to Passenger" : "Drive with Sharka",
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF006064)),
                   ),
                   onTap: () {
                     onModeChanged(!isDriverMode);
@@ -98,19 +81,30 @@ class SideMenuDrawer extends StatelessWidget {
               ],
             ),
           ),
+
+          // 3. LOGOUT (Coral Orange)
           ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text("Logout", style: TextStyle(color: Colors.red)),
+            leading: const Icon(Icons.logout, color: Color(0xFFFF6F00)),
+            title: const Text("Logout", style: TextStyle(color: Color(0xFFFF6F00), fontWeight: FontWeight.bold)),
             onTap: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Logged Out Successfully"))
-              );
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Logged Out Successfully")));
             },
           ),
           const SizedBox(height: 20),
         ],
       ),
+    );
+  }
+
+  Widget _buildMenuItem(BuildContext context, IconData icon, String text, Widget page) {
+    return ListTile(
+      leading: Icon(icon, color: const Color(0xFF006064)),
+      title: Text(text, style: const TextStyle(fontWeight: FontWeight.w500)),
+      onTap: () {
+        Navigator.pop(context);
+        Navigator.push(context, MaterialPageRoute(builder: (context) => page));
+      },
     );
   }
 }

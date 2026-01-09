@@ -7,12 +7,13 @@ import 'search_destination_screen.dart';
 import 'side_menu_drawer.dart';
 import 'driver_earnings_screen.dart';
 import 'wallet_screen.dart'; 
-import 'ride_history_screen.dart'; // IMPORT HISTORY
+import 'ride_history_screen.dart';
 import '../services/driver_simulation_service.dart';
 import '../widgets/driver_request_panel.dart';
 import '../widgets/driver_trip_panel.dart';
 import '../widgets/consensus_popup.dart';
 import '../logic/deviation_logic.dart'; 
+import '../widgets/luxury_ride_selector.dart';
 
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key});
@@ -25,9 +26,81 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   final Completer<GoogleMapController> _controller = Completer();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // --- NEW: CUSTOM MAP STYLE (Silver & Teal Ocean Theme) ---
+  final String _mapStyle = '''
+  [
+    {
+      "elementType": "geometry",
+      "stylers": [{"color": "#f5f5f5"}]
+    },
+    {
+      "elementType": "labels.icon",
+      "stylers": [{"visibility": "off"}]
+    },
+    {
+      "elementType": "labels.text.fill",
+      "stylers": [{"color": "#616161"}]
+    },
+    {
+      "elementType": "labels.text.stroke",
+      "stylers": [{"color": "#f5f5f5"}]
+    },
+    {
+      "featureType": "administrative.land_parcel",
+      "elementType": "labels.text.fill",
+      "stylers": [{"color": "#bdbdbd"}]
+    },
+    {
+      "featureType": "poi",
+      "elementType": "geometry",
+      "stylers": [{"color": "#eeeeee"}]
+    },
+    {
+      "featureType": "poi",
+      "elementType": "labels.text.fill",
+      "stylers": [{"color": "#757575"}]
+    },
+    {
+      "featureType": "poi.park",
+      "elementType": "geometry",
+      "stylers": [{"color": "#e5e5e5"}]
+    },
+    {
+      "featureType": "road",
+      "elementType": "geometry",
+      "stylers": [{"color": "#ffffff"}]
+    },
+    {
+      "featureType": "road.arterial",
+      "elementType": "labels.text.fill",
+      "stylers": [{"color": "#757575"}]
+    },
+    {
+      "featureType": "road.highway",
+      "elementType": "geometry",
+      "stylers": [{"color": "#dadada"}]
+    },
+    {
+      "featureType": "road.highway",
+      "elementType": "labels.text.fill",
+      "stylers": [{"color": "#616161"}]
+    },
+    {
+      "featureType": "water",
+      "elementType": "geometry",
+      "stylers": [{"color": "#c9c9c9"}]
+    },
+    {
+      "featureType": "water",
+      "elementType": "labels.text.fill",
+      "stylers": [{"color": "#9e9e9e"}]
+    }
+  ]
+  ''';
+
   // --- STATE VARIABLES ---
   LatLng? _currentPosition;
-  Set<Polyline> _polylines = {};
+  final Set<Polyline> _polylines = {};
   
   // DRIVER SIMULATION
   final DriverSimulationService _driverService = DriverSimulationService();
@@ -55,13 +128,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   String _priceGo = "Loading...";
   String _priceMoto = "Loading...";
   String _priceAuto = "Loading...";
-  
-  // SHARKA SHARE VARIABLES
   String _priceShare = "Loading...";
   int _requestedSeats = 1;
 
-  // INTERCITY LOGIC
+  // MODE FLAGS
   bool _isIntercity = false;
+  bool _isLuxury = false; 
+
   String _priceIntercitySedan = "Loading...";
   String _priceIntercitySUV = "Loading...";
 
@@ -82,7 +155,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     super.dispose();
   }
 
-  // --- 1. LOCATION LOGIC ---
+  // --- 1. LOCATION LOGIC (Real GPS) ---
   Future<void> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -97,6 +170,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
     if (permission == LocationPermission.deniedForever) return;
 
+    // Uses Real Device GPS for final build
     Position position = await Geolocator.getCurrentPosition();
     _moveCameraToPosition(position);
   }
@@ -160,7 +234,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         _isDriverFound = true;
       });
 
-      if (!_isIntercity) {
+      if (!_isIntercity && !_isLuxury) {
         Future.delayed(const Duration(seconds: 4), () {
           if (mounted && !_isDriverMode && _currentPosition != null) {
             
@@ -256,12 +330,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         _isTripActive = false;
         _tripStatus = "pickup";
         
-        // --- SAVE TO HISTORY (Day 26) ---
-        RideHistoryScreen.addTrip(
-          "Current Location",
-          "Destination",
-          "₹240"
-        );
+        RideHistoryScreen.addTrip("Current Location", "Destination", "₹240");
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Trip Completed! Saved to History."), backgroundColor: Colors.green)
@@ -332,6 +401,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         children: [
           GoogleMap(
             mapType: MapType.normal,
+            style: _mapStyle, // <-- APPLY NEW THEME HERE
             initialCameraPosition: _initialPosition,
             polylines: _polylines,
             markers: _isDriverMode ? {} : _driverMarkers, 
@@ -354,7 +424,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(20), // Rounded for new theme
                   boxShadow: const [
                     BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))
                   ],
@@ -385,7 +455,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                               _polylines.add(
                                 Polyline(
                                   polylineId: const PolylineId('route'),
-                                  color: Colors.black,
+                                  color: const Color(0xFF006064), // Teal Path
                                   width: 5,
                                   points: [
                                     _currentPosition!,
@@ -414,7 +484,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                         },
                         child: Row(
                           children: [
-                            const Icon(Icons.search, color: Colors.grey),
+                            const Icon(Icons.search, color: Color(0xFF006064)),
                             const SizedBox(width: 10),
                             Text("Where to?", style: TextStyle(color: Colors.grey[600], fontSize: 16)),
                           ],
@@ -424,8 +494,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                     GestureDetector(
                       onTap: () => _scaffoldKey.currentState?.openDrawer(),
                       child: const CircleAvatar(
-                        radius: 15,
-                        backgroundColor: Colors.grey,
+                        radius: 18,
+                        backgroundColor: Color(0xFF006064),
                         child: Icon(Icons.person, size: 20, color: Colors.white),
                       ),
                     ),
@@ -461,17 +531,17 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                       const SizedBox(height: 20),
 
                       if (_isDriverFound) ...[
-                        const Text("Driver is arriving in 2 mins", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+                        const Text("Driver is arriving in 2 mins", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF006064))),
                         const SizedBox(height: 20),
                         
                         Container(
                           padding: const EdgeInsets.all(15),
-                          decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey[200]!)),
-                          child: Row(
+                          decoration: BoxDecoration(color: const Color(0xFFF5F9FA), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey[200]!)),
+                          child: const Row(
                             children: [
-                              const CircleAvatar(radius: 25, backgroundColor: Colors.grey, child: Icon(Icons.person, size: 30, color: Colors.white)),
-                              const SizedBox(width: 15),
-                              const Column(
+                              CircleAvatar(radius: 25, backgroundColor: Color(0xFF006064), child: Icon(Icons.person, size: 30, color: Colors.white)),
+                              SizedBox(width: 15),
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text("Raju Bhai", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -479,8 +549,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                                   Text("MH 12 AB 1234", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                 ],
                               ),
-                              const Spacer(),
-                              const Column(
+                              Spacer(),
+                              Column(
                                 children: [
                                   Icon(Icons.star, color: Colors.amber),
                                   Text("4.8", style: TextStyle(fontWeight: FontWeight.bold)),
@@ -497,8 +567,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                             Expanded(
                               child: OutlinedButton.icon(
                                 onPressed: () {},
-                                icon: const Icon(Icons.call, color: Colors.black),
-                                label: const Text("Call Driver", style: TextStyle(color: Colors.black)),
+                                icon: const Icon(Icons.call, color: Color(0xFF006064)),
+                                label: const Text("Call Driver", style: TextStyle(color: Color(0xFF006064))),
                                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
                               ),
                             ),
@@ -519,7 +589,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                         const Center(
                           child: Column(
                             children: [
-                              CircularProgressIndicator(color: Colors.black),
+                              CircularProgressIndicator(color: Color(0xFF006064)),
                               SizedBox(height: 20),
                               Text("Finding your ride...", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                               Text("Connecting to nearby drivers", style: TextStyle(color: Colors.grey)),
@@ -532,30 +602,41 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                         const Text("Choose a ride", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 15),
 
+                        // MODE TOGGLE
                         _buildModeToggle(),
                         const SizedBox(height: 15),
 
-                        if (!_isIntercity) ...[
+                        if (_isLuxury) ...[
+                          // --- LUXURY MODE ---
+                          LuxuryRideSelector(
+                            onCarSelected: (name, price) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Selected $name: ₹$price")));
+                            },
+                          ),
+                          const SizedBox(height: 20),
+
+                        ] else if (!_isIntercity) ...[
+                          // --- CITY MODE ---
                           Container(
                             margin: const EdgeInsets.only(bottom: 15),
                             decoration: BoxDecoration(
-                              color: Colors.green[50],
-                              border: Border.all(color: Colors.green, width: 2),
-                              borderRadius: BorderRadius.circular(12),
+                              color: const Color(0xFFE0F7FA), // Light Cyan
+                              border: Border.all(color: const Color(0xFF006064), width: 1),
+                              borderRadius: BorderRadius.circular(20),
                             ),
                             child: Column(
                               children: [
                                 ListTile(
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                                  leading: const Icon(Icons.people, color: Colors.green, size: 30),
-                                  title: const Text("Sharka Share", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 18)),
+                                  leading: const Icon(Icons.people, color: Color(0xFF006064), size: 30),
+                                  title: const Text("Sharka Share", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF006064), fontSize: 18)),
                                   subtitle: const Text("Wait up to 5 mins • Save 30%", style: TextStyle(fontSize: 12, color: Colors.black54)),
                                   trailing: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
-                                      Text(_priceShare, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.green)),
-                                      const Text("Best Value", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                                      Text(_priceShare, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF006064))),
+                                      const Text("Best Value", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF006064))),
                                     ],
                                   ),
                                   onTap: () {},
@@ -573,6 +654,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                           _buildRideOption(title: "Auto", price: _priceAuto, time: "2 min away", icon: Icons.electric_rickshaw, isSelected: false),
 
                         ] else ...[
+                          // --- OUTSTATION MODE ---
                           const Text("Travel comfortably to other cities", style: TextStyle(color: Colors.grey, fontSize: 12)),
                           const SizedBox(height: 10),
 
@@ -582,17 +664,32 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
                         const SizedBox(height: 20),
 
-                        SizedBox(
+                        // --- NEW GRADIENT BUTTON ---
+                        Container(
                           width: double.infinity,
-                          height: 50,
+                          height: 55,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF006064), Color(0xFF0097A7)], // Teal Gradient
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: [
+                              BoxShadow(color: const Color(0xFF006064).withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 5))
+                            ],
+                          ),
                           child: ElevatedButton(
                             onPressed: _onBookRide,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              backgroundColor: Colors.transparent, 
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                             ),
-                            child: const Text("Choose Sharka Go", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            child: Text(
+                              _isLuxury ? "Request Luxury" : "Confirm Sharka Go", 
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.2),
+                            ),
                           ),
                         ),
                       ]
@@ -609,7 +706,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               child: CircleAvatar(
                 backgroundColor: Colors.white,
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF006064)),
                   onPressed: _resetApp,
                 ),
               ),
@@ -715,13 +812,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
       decoration: BoxDecoration(
-        color: isSelected ? Colors.grey[100] : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: isSelected ? Border.all(color: Colors.black, width: 2) : Border.all(color: Colors.transparent),
+        color: isSelected ? const Color(0xFFF5F9FA) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: isSelected ? Border.all(color: const Color(0xFF006064), width: 2) : Border.all(color: Colors.transparent),
       ),
       child: Row(
         children: [
-          SizedBox(width: 60, child: Icon(icon, size: 40, color: Colors.grey[800])),
+          SizedBox(width: 60, child: Icon(icon, size: 40, color: const Color(0xFF006064))),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -741,7 +838,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text("Seats: ", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+        const Text("Seats: ", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF006064))),
         const SizedBox(width: 10),
         ToggleButtons(
           isSelected: [_requestedSeats == 1, _requestedSeats == 2],
@@ -751,11 +848,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             });
           },
           borderRadius: BorderRadius.circular(10),
-          borderColor: Colors.green,
-          selectedBorderColor: Colors.green,
+          borderColor: const Color(0xFF006064),
+          selectedBorderColor: const Color(0xFF006064),
           selectedColor: Colors.white,
-          fillColor: Colors.green,
-          color: Colors.green,
+          fillColor: const Color(0xFF006064),
+          color: const Color(0xFF006064),
           constraints: const BoxConstraints(minHeight: 30, minWidth: 40),
           children: const [Text("1"), Text("2")],
         ),
@@ -768,38 +865,47 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       margin: const EdgeInsets.symmetric(vertical: 10),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: const Color(0xFFE0F2F1), // Very light teal
         borderRadius: BorderRadius.circular(25),
       ),
       child: Row(
         children: [
-          _buildToggleOption("City Rides", !_isIntercity),
-          _buildToggleOption("Outstation", _isIntercity),
+          _buildToggleOption(
+            "City", 
+            !_isIntercity && !_isLuxury, 
+            () => setState(() { _isIntercity = false; _isLuxury = false; })
+          ),
+          _buildToggleOption(
+            "Outstation", 
+            _isIntercity, 
+            () => setState(() { _isIntercity = true; _isLuxury = false; })
+          ),
+          _buildToggleOption(
+            "Luxury", 
+            _isLuxury, 
+            () => setState(() { _isIntercity = false; _isLuxury = true; })
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildToggleOption(String text, bool isActive) {
+  Widget _buildToggleOption(String text, bool isActive, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _isIntercity = (text == "Outstation");
-          });
-        },
+        onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isActive ? Colors.black : Colors.transparent,
+            color: isActive ? const Color(0xFF006064) : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: isActive ? [const BoxShadow(color: Colors.black26, blurRadius: 4)] : [],
+            boxShadow: isActive ? [const BoxShadow(color: Colors.black12, blurRadius: 4)] : [],
           ),
           child: Text(
             text,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isActive ? Colors.white : Colors.black54,
+              color: isActive ? Colors.white : const Color(0xFF006064),
               fontWeight: FontWeight.bold,
             ),
           ),
